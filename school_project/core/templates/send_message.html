@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>إرسال رسالة</title>
+</head>
+<body>
+    <h2>✉️ إرسال رسالة لولي الأمر رقم {{ parent_id }}</h2>
+
+    <form method="post">
+        {% csrf_token %}
+        <textarea name="message" rows="6" cols="40" placeholder="اكتب الرسالة هنا..."></textarea><br><br>
+        <button type="submit">📤 إرسال</button>
+    </form>
+
+    <br>
+    <a href="{% url 'dashboard' %}">⬅ العودة للوحة التحكم</a>
+</body>
+</html>

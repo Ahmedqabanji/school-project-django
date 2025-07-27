@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>اختيار ولي أمر</title>
+</head>
+<body>
+    <h2>📬 اختر ولي أمر للمحادثة</h2>
+    <ul>
+        {% for parent in parents %}
+            <li>
+                <a href="{% url 'chat_view' parent.0 %}">
+                    👤 {{ parent.1 }}
+                </a>
+            </li>
+        {% empty %}
+            <li>لا يوجد أولياء أمور</li>
+        {% endfor %}
+    </ul>
+
+    <a href="{% url 'dashboard' %}">⬅ العودة للوحة التحكم</a>
+</body>
+</html>

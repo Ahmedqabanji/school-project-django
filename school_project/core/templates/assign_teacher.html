@@ -1,0 +1,19 @@
+<h2>🔗 ربط مدرس بصف</h2>
+<form method="POST">
+    {% csrf_token %}
+    <label>اختيار المدرس:</label>
+    <select name="teacher_id" required>
+        {% for teacher in teachers %}
+            <option value="{{ teacher.0 }}">{{ teacher.1 }}</option>
+        {% endfor %}
+    </select>
+
+    <label>اختيار الصف:</label>
+    <select name="classroom_id" required>
+        {% for classroom in classrooms %}
+            <option value="{{ classroom.0 }}">{{ classroom.1 }}</option>
+        {% endfor %}
+    </select>
+
+    <button type="submit">🔗 ربط</button>
+</form>

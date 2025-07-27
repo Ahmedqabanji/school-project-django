@@ -1,0 +1,6 @@
+<h2>📝 رسالة جماعية للصف</h2>
+<form method="POST">
+  {% csrf_token %}
+  <textarea name="content" class="form-control mb-2" rows="4" placeholder="أدخل الرسالة هنا" required></textarea>
+  <button type="submit" class="btn btn-success">إرسال</button>
+</form>

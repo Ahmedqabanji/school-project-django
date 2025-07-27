@@ -1,0 +1,16 @@
+<h2>إضافة ولي أمر</h2>
+
+{% if error %}
+  <p style="color:red">{{ error }}</p>
+{% endif %}
+
+<form method="POST">
+  {% csrf_token %}
+  <label>اسم المستخدم:</label><br>
+  <input type="text" name="username" required><br><br>
+
+  <label>كلمة المرور:</label><br>
+  <input type="password" name="password" required><br><br>
+
+  <button type="submit">إضافة ولي الأمر</button>
+</form>

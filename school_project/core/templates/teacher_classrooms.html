@@ -1,0 +1,21 @@
+<h2>📚 الصفوف التي تُدرّسها</h2>
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th>اسم الصف</th>
+      <th>المرحلة</th>
+      <th>المواد</th>
+      <th>الطلاب</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for id, name, year in classrooms %}
+    <tr>
+      <td>{{ name }}</td>
+      <td>{{ year }}</td>
+      <td><a href="{% url 'teacher_subjects' id %}" class="btn btn-primary btn-sm">عرض المواد</a></td>
+      <td><a href="{% url 'teacher_students' id %}" class="btn btn-success btn-sm">عرض الطلاب</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

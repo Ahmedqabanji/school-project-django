@@ -1,0 +1,11 @@
+<h2>📢 الرسائل من المدرسين</h2>
+<ul>
+  {% for content, timestamp, teacher_name in broadcasts %}
+    <li>
+      <strong>{{ teacher_name }}</strong> ({{ timestamp }}):<br>
+      {{ content }}
+    </li>
+  {% empty %}
+    <li>لا توجد رسائل حتى الآن.</li>
+  {% endfor %}
+</ul>

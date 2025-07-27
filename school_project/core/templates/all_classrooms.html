@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>كل الصفوف</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="p-4">
+
+    <h2 class="mb-4">📚 قائمة الصفوف الدراسية</h2>
+
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>اسم الصف</th>
+                <th>المرحلة الدراسية</th>
+                <th>المدرسين</th>
+                <th>الطلاب</th>
+                <th>المواد</th>
+                <th>الجدول الأسبوعي</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for classroom in classrooms %}
+            <tr>
+                <td>{{ classroom.1 }}</td>
+                <td>{{ classroom.2 }}</td>
+                <td>
+                    <a href="{% url 'classroom_teachers' classroom.0 %}" class="btn btn-sm btn-primary">عرض المدرسين</a>
+                </td>
+                <td>
+                    <a href="{% url 'classroom_students' classroom.0 %}" class="btn btn-sm btn-success">عرض الطلاب</a>
+                </td>
+                <td>
+                    <a href="{% url 'classroom_subjects' classroom.0 %}" class="btn btn-sm btn-info">عرض المواد</a>
+                </td>
+                <td>
+                    <a href="{% url 'weekly_schedule' classroom.0 %}" class="btn btn-sm btn-warning">عرض الجدول</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">⬅ العودة للوحة التحكم</a>
+
+</body>
+</html>
