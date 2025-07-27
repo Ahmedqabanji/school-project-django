@@ -142,7 +142,8 @@ def get_all_teachers():
     cursor.execute("SELECT id, username FROM users WHERE role = 'teacher'")
     result = cursor.fetchall()
     conn.close()
-    return result
+    return result 
+
 
 # إضافة معلم وربطه بصف دراسي
 def add_teacher_view(request):
@@ -185,7 +186,7 @@ def add_teacher_view(request):
 
 # إضافة ولي أمر
 def add_parent_view(request):
-    if not is_admin(request):  # ✅ استخدام is_admin بدل الشرط اليدوي
+    if not is_admin(request):  # استخدام is_admin بدل الشرط اليدوي
         return redirect('login')
 
     if request.method == 'POST':
