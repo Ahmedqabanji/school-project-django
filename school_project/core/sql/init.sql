@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
+    ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1;
     role TEXT CHECK(role IN ('admin', 'teacher', 'student', 'parent')) NOT NULL
 );
 
@@ -71,7 +72,7 @@ CREATE TABLE IF NOT EXISTS teacher_classrooms (
     teacher_id INTEGER NOT NULL,
     classroom_id INTEGER NOT NULL,
     FOREIGN KEY (teacher_id) REFERENCES users(id),
-    FOREIGN KEY (classroom_id) REFERENCES classrooms(id),
+    FOREIGN KEY (classroom_id) REFERENCES classrooms(id)
 );
 
 -- الرسائل

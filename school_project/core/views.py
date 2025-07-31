@@ -218,3 +218,541 @@ def dashboard_view(request):
     if not is_admin(request) or 'user_id' not in request.session:
         return redirect('login')
     return render(request, 'dashboard.html')
+
+
+# إضافة صف دراسي
+def add_classroom_view(request):
+    if request.session.get('role') != 'admin':
+        return redirect('login')
+
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        year = request.POST.get('year')
+
+        if name and year:
+            conn = sqlite3.connect('db.sqlite3')
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO classrooms (name, year) VALUES (?, ?)", (name, year))
+            conn.commit()
+            conn.close()
+            return redirect('dashboard')
+        else:
+            return render(request, 'add_classroom.html', {'error': 'يرجى ملء كل الحقول'})
+
+    return render(request, 'add_classroom.html')
+
+# دالة مساعدة لجلب الصفوف
+def get_all_classrooms():
+    conn = sqlite3.connect('db.sqlite3')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM classrooms")
+    result = cursor.fetchall()
+    conn.close()
+    return result
+
+
+
+# عرض كل الصفوف
+def all_classrooms_view(request):
+    if request.session.get("role") != "admin":
+        return redirect('login')
+
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, year FROM classrooms")
+    classrooms = cursor.fetchall()
+    conn.close()
+
+    return render(request, "all_classrooms.html", {"classrooms": classrooms})
+
+# عرض المدرسين المرتبطين بصف
+def classroom_teachers_view(request, classroom_id):
+    if not is_admin(request):  
+        return redirect('login')
+
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT users.username
+        FROM users
+        JOIN teacher_classrooms ON users.id = teacher_classrooms.teacher_id
+        WHERE teacher_classrooms.classroom_id = ?
+    """, (classroom_id,))
+    teachers = cursor.fetchall()
+    conn.close()
+
+    return render(request, "classroom_teachers.html", {"teachers": teachers})
+
+
+# عرض الطلاب وأولياء أمورهم في صف معين
+def classroom_students_view(request, classroom_id):
+    if not is_admin(request):  
+        return redirect('login')
+
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT s.id, u.username AS student_name, p.username AS parent_name, p.id AS parent_id
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        JOIN users p ON s.parent_id = p.id
+        WHERE s.classroom_id = ?
+    """, (classroom_id,))
+    students = cursor.fetchall()
+    conn.close()
+
+    return render(request, "classroom_students.html", {
+        "students": students,
+        "classroom_id": classroom_id
+    })
+
+
+# عرض قائمة أولياء الأمور لبدء محادثة
+def chat_with_parent_view(request):
+    if not is_admin(request):  
+        return redirect('login')
+
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users WHERE role = 'parent'")
+    parents = cursor.fetchall()
+    conn.close()
+
+    return render(request, "chat_with_parents.html", {"parents": parents})
+
+
+
+# صفحة تفاصيل المحادثة بين المدير وولي الأمر
+def chat_detail_view(request, parent_id):
+    if not is_admin(request):  
+        return redirect('login')
+
+    user_id = request.session["user_id"]
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+
+    if request.method == "POST":
+        content = request.POST.get("message")
+        if content:
+            cursor.execute("""
+                INSERT INTO messages (sender_id, receiver_id, content)
+                VALUES (?, ?, ?)
+            """, (user_id, parent_id, content))
+            conn.commit()
+
+    cursor.execute("""
+        SELECT messages.id, sender.username, content, timestamp, sender.id
+        FROM messages
+        JOIN users AS sender ON sender.id = messages.sender_id
+        WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+        ORDER BY timestamp ASC
+    """, (user_id, parent_id, parent_id, user_id))
+
+    messages = cursor.fetchall()
+    cursor.execute("SELECT username FROM users WHERE id = ?", (parent_id,))
+    parent_name = cursor.fetchone()[0]
+    conn.close()
+
+    return render(request, "chat_detail.html", {
+        "messages": messages,
+        "parent_id": parent_id,
+        "parent_name": parent_name,
+        "my_id": user_id
+    })
+
+
+
+# عرض قائمة أولياء الأمور لبدء محادثة
+def parent_list_view(request):
+    if not is_admin(request):  
+        return redirect('login')
+
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, username FROM users WHERE role = 'parent'")
+    parents = cursor.fetchall()
+
+    conn.close()
+
+    return render(request, "parent_list.html", {"parents": parents})
+
+
+
+
+def assign_teacher_view(request):
+    if not is_admin(request):  
+        return redirect('login')
+    
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+
+    if request.method == "POST":
+        teacher_id = request.POST.get("teacher_id")
+        classroom_id  = request.POST.get("classroom_id")
+        cursor.execute("INSERT OR IGNORE INTO teacher_classrooms (teacher_id, classroom_id) VALUES (?,?)", (teacher_id, classroom_id))
+
+        conn.commit()
+        conn.close()
+        return redirect("dashboard")
+    
+    cursor.execute("SELECT id, username FROM users WHERE role = 'teacher'")
+    teachers = cursor.fetchall()
+    cursor.execute("SELECT id, name FROM classrooms")
+    classrooms =cursor.fetchall()
+    conn.close()
+
+    return render(request, "assign_teacher.html", {
+        "teachers":teachers,
+        "classrooms":classrooms
+    })
+
+
+# إضافة مادة دراسية وربطها بمدرس وصف
+def add_subject_view(request):
+    if not is_admin(request):  
+        return redirect('login')
+
+    conn = sqlite3.connect('db.sqlite3')
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        teacher_id = request.POST.get('teacher_id')
+        classroom_id = request.POST.get('classroom_id')
+        day = request.POST.get('day')
+        start_time = request.POST.get('start_time')
+        end_time = request.POST.get('end_time')
+
+        if name and teacher_id and classroom_id and day and start_time and end_time:
+            cursor.execute("""
+                INSERT INTO subjects (name, teacher_id, classroom_id, day, start_time, end_time)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (name, teacher_id, classroom_id, day, start_time, end_time))
+            conn.commit()
+            conn.close()
+            return redirect('dashboard')
+        else:
+            return render(request, 'add_subject.html', {
+                'error': 'يرجى ملء جميع الحقول',
+                'teachers': get_all_teachers(),
+                'classrooms': get_all_classrooms()
+            })
+
+    teachers = get_all_teachers()
+    classrooms = get_all_classrooms()
+    conn.close()
+    return render(request, 'add_subject.html', {
+        'teachers': teachers,
+        'classrooms': classrooms
+    })
+
+def get_all_teachers():
+    conn = sqlite3.connect('db.sqlite3')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users WHERE role = 'teacher'")
+    teachers = cursor.fetchall()
+    conn.close()
+    return teachers
+
+def get_all_classrooms():
+    conn = sqlite3.connect('db.sqlite3')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM classrooms")
+    classrooms = cursor.fetchall()
+    conn.close()
+    return classrooms
+
+# عرض المواد الدراسية المرتبطة بصف معين
+def classroom_subjects_view(request, classroom_id):
+    if not is_admin(request):  
+        return redirect('login')
+    
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT subjects.name, users.username, subjects.day, subjects.start_time, subjects.end_time
+        FROM subjects
+        JOIN users ON subjects.teacher_id = users.id
+        WHERE subjects.classroom_id = ?
+    """, (classroom_id,))
+    subjects = cursor.fetchall()
+    conn.close()
+
+    return render(request, "classroom_subjects.html", {
+        "subjects": subjects,
+        "classroom_id": classroom_id
+    })
+
+
+
+def weekly_schedule_view(request, classroom_id):
+    if not is_admin(request):  
+        return redirect('login')
+    
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT subjects.day, subjects.start_time, subjects.end_time, subjects.name, users.username
+        FROM subjects
+        JOIN users ON subjects.teacher_id = users.id
+        WHERE subjects.classroom_id = ?
+        ORDER BY 
+            CASE day
+                WHEN 'Sunday' THEN 1
+                WHEN 'Monday' THEN 2
+                WHEN 'Tuesday' THEN 3
+                WHEN 'Wednesday' THEN 4
+                WHEN 'Thursday' THEN 5
+                WHEN 'Friday' THEN 6
+                WHEN 'Saturday' THEN 7
+            END,
+            start_time
+    """, (classroom_id,))
+
+    subjects = cursor.fetchall()
+    conn.close()
+
+    return render(request, "weekly_schedule.html", {
+        "subjects": subjects,
+        "classroom_id": classroom_id
+    })
+
+
+
+def assign_teacher_view(request):
+    if not is_admin(request):  
+        return redirect('login')
+    
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+
+    if request.method == "POST":
+        teacher_id = request.POST.get("teacher_id")
+        classroom_id  = request.POST.get("classroom_id")
+        cursor.execute("INSERT OR IGNORE INTO teacher_classrooms (teacher_id, classroom_id) VALUES (?,?)", (teacher_id, classroom_id))
+
+        conn.commit()
+        conn.close()
+        return redirect("dashboard")
+    
+    cursor.execute("SELECT id, username FROM users WHERE role = 'teacher'")
+    teachers = cursor.fetchall()
+    cursor.execute("SELECT id, name FROM classrooms")
+    classrooms =cursor.fetchall()
+    conn.close()
+
+    return render(request, "assign_teacher.html", {
+        "teachers":teachers,
+        "classrooms":classrooms
+    })
+
+
+# إضافة مادة دراسية وربطها بمدرس وصف
+def add_subject_view(request):
+    if not is_admin(request):  
+        return redirect('login')
+
+    conn = sqlite3.connect('db.sqlite3')
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        teacher_id = request.POST.get('teacher_id')
+        classroom_id = request.POST.get('classroom_id')
+        day = request.POST.get('day')
+        start_time = request.POST.get('start_time')
+        end_time = request.POST.get('end_time')
+
+        if name and teacher_id and classroom_id and day and start_time and end_time:
+            cursor.execute("""
+                INSERT INTO subjects (name, teacher_id, classroom_id, day, start_time, end_time)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (name, teacher_id, classroom_id, day, start_time, end_time))
+            conn.commit()
+            conn.close()
+            return redirect('dashboard')
+        else:
+            return render(request, 'add_subject.html', {
+                'error': 'يرجى ملء جميع الحقول',
+                'teachers': get_all_teachers(),
+                'classrooms': get_all_classrooms()
+            })
+
+    teachers = get_all_teachers()
+    classrooms = get_all_classrooms()
+    conn.close()
+    return render(request, 'add_subject.html', {
+        'teachers': teachers,
+        'classrooms': classrooms
+    })
+
+def get_all_teachers():
+    conn = sqlite3.connect('db.sqlite3')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users WHERE role = 'teacher'")
+    teachers = cursor.fetchall()
+    conn.close()
+    return teachers
+
+def get_all_classrooms():
+    conn = sqlite3.connect('db.sqlite3')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM classrooms")
+    classrooms = cursor.fetchall()
+    conn.close()
+    return classrooms
+
+# عرض المواد الدراسية المرتبطة بصف معين
+def classroom_subjects_view(request, classroom_id):
+    if not is_admin(request):  
+        return redirect('login')
+    
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT subjects.name, users.username, subjects.day, subjects.start_time, subjects.end_time
+        FROM subjects
+        JOIN users ON subjects.teacher_id = users.id
+        WHERE subjects.classroom_id = ?
+    """, (classroom_id,))
+    subjects = cursor.fetchall()
+    conn.close()
+
+    return render(request, "classroom_subjects.html", {
+        "subjects": subjects,
+        "classroom_id": classroom_id
+    })
+
+
+
+def weekly_schedule_view(request, classroom_id):
+    if not is_admin(request):  
+        return redirect('login')
+
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT subjects.day, subjects.start_time, subjects.end_time, subjects.name, users.username
+        FROM subjects
+        JOIN users ON subjects.teacher_id = users.id
+        WHERE subjects.classroom_id = ?
+        ORDER BY 
+            CASE day
+                WHEN 'Sunday' THEN 1
+                WHEN 'Monday' THEN 2
+                WHEN 'Tuesday' THEN 3
+                WHEN 'Wednesday' THEN 4
+                WHEN 'Thursday' THEN 5
+                WHEN 'Friday' THEN 6
+                WHEN 'Saturday' THEN 7
+            END,
+            start_time
+    """, (classroom_id,))
+
+    subjects = cursor.fetchall()
+    conn.close()
+
+    return render(request, "weekly_schedule.html", {
+        "subjects": subjects,
+        "classroom_id": classroom_id
+    })
+
+
+
+def teacher_subjects_view(request, classroom_id):
+    if request.session.get("role") != "teacher":
+        return redirect('login')
+
+    teacher_id = request.session.get("user_id")
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT name, day, start_time, end_time
+        FROM subjects
+        WHERE classroom_id = ? AND teacher_id = ?
+    """, (classroom_id, teacher_id))
+    subjects = cursor.fetchall()
+    conn.close()
+
+    return render(request, "teacher_subjects.html", {"subjects": subjects})
+
+
+def teacher_students_view(request, classroom_id):
+    if request.session.get("role") != "teacher":
+        return redirect('login')
+
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT s.id, u.username
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        WHERE s.classroom_id = ?
+    """, (classroom_id,))
+    students = cursor.fetchall()
+    conn.close()
+
+    return render(request, "teacher_students.html", {
+        "students": students,
+        "classroom_id": classroom_id
+    })
+
+
+def add_grade_view(request, classroom_id, student_id):
+    if request.session.get("role") != "teacher":
+        return redirect("login")
+
+    teacher_id = request.session.get("user_id")
+    conn = sqlite3.connect("db.sqlite3")
+    cursor = conn.cursor()
+
+    # جلب المواد التي يدرسها هذا المدرس داخل هذا الصف فقط
+    cursor.execute("""
+        SELECT id, name FROM subjects
+        WHERE teacher_id = ? AND classroom_id = ?
+    """, (teacher_id, classroom_id))
+    subjects = cursor.fetchall()
+
+    if request.method == "POST":
+        subject_id = request.POST.get("subject_id")
+        exam_score = request.POST.get("exam_score")
+        evaluation = request.POST.get("evaluation")
+
+        cursor.execute("""
+            INSERT INTO grades (student_id, subject_id, exam_score, evaluation)
+            VALUES (?, ?, ?, ?)
+        """, (student_id, subject_id, exam_score, evaluation))
+
+        conn.commit()
+        conn.close()
+        return redirect("teacher_students", classroom_id=classroom_id)
+
+    conn.close()
+    return render(request, "add_grade.html", {
+        "subjects": subjects,
+        "student_id": student_id,
+        "classroom_id": classroom_id
+    })
+
+
+def student_dashboard_view(request):
+    if request.session.get("role") != "student":
+        return redirect("login")
+
+    return render(request, "student_dashboard.html")
+
+
+def teacher_dashboard_view(request):
+    if request.session.get("role") != "teacher":
+        return redirect("login")
+
+    return render(request, "teacher_dashboard.html")
+
+def parent_dashboard_view(request):
+    if request.session.get("role") != "parent":
+        return redirect("login")
+
+    return render(request, "parent_dashboard.html")
